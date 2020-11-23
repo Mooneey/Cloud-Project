@@ -16,6 +16,7 @@ import com.amazonaws.services.ec2.model.DescribeSecurityGroupsRequest;
 import com.amazonaws.services.ec2.model.DescribeSecurityGroupsResult;
 import com.amazonaws.services.ec2.model.Image;
 import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.InstanceState;
 import com.amazonaws.services.ec2.model.InstanceType;
 import com.amazonaws.services.ec2.model.KeyPairInfo;
 import com.amazonaws.services.ec2.model.RebootInstancesRequest;
@@ -36,6 +37,15 @@ public class aws {
 	 */
 
 	static AmazonEC2 ec2;
+	
+	/* 인스턴스 상태 상수 */
+	static final int PENDING = 0;
+	static final int RUNNING = 16;
+	static final int SHUTTING_DOWN = 32;
+	static final int TERMINATED = 48;
+	static final int STOPPING = 64;
+	static final int STOPPED = 80;
+	
 
 	private static void init() throws Exception {
 		/*
@@ -69,18 +79,19 @@ public class aws {
 
 		while (true) {
 			System.out.println("															");
-			System.out.println("															");
 			System.out.println("------------------------------------------------------------");
 			System.out.println(" Amazon AWS Control Panel using SDK ");
 			System.out.println("															");
 			System.out.println(" Cloud Computing, Computer Science Department ");
 			System.out.println("			at Chungbuk National University ");
 			System.out.println("------------------------------------------------------------");
-			System.out.println(" 1. list instance					2. available zones		");
-			System.out.println(" 3. start instance					4. available regions	");
-			System.out.println(" 5. stop instance					6. create instance		");
-			System.out.println(" 7. reboot instance					8. list images			");
-			System.out.println(" 9. terminate instance				99. quit				");
+			System.out.println(" 1. list instance\t 2. available zones ");
+			System.out.println(" 3. start instance\t 4. available regions ");
+			System.out.println(" 5. stop instance\t 6. create instance ");
+			System.out.println(" 7. reboot instance\t 8. list images ");
+			System.out.println(" 9. terminate instance\t 10. list keys ");
+			System.out.println(" 11. start all instance\t 12. list security group ");
+			System.out.println(" 13. stop all instance\t 99. quit");
 			System.out.println("------------------------------------------------------------");
 
 			System.out.print("Enter an integer: ");
@@ -135,15 +146,19 @@ public class aws {
 				break;
 				
 			case 10:
-				startAllInstance();
+				listKeys();
 				break;
 
 			case 11:
-				listKeyPair();
+				startAllInstance();
 				break;
 				
 			case 12:
-				listSecurityGroup();
+				listSecurityGroups();
+				break;
+				
+			case 13:
+				stopAllInstance();
 				break;
 				
 			case 99:
@@ -205,7 +220,6 @@ public class aws {
 								zone.getRegionName()
 			);
 		}
-		System.out.println();
 	}
 
 	
@@ -217,8 +231,7 @@ public class aws {
 
 		ec2.startInstances(request);
 
-		System.out.printf("Successfully started instance %s", instanceId);
-		System.out.println();
+		System.out.printf("Successfully started instance %s\n", instanceId);
 	}
 
 	
@@ -229,13 +242,12 @@ public class aws {
 		DescribeRegionsResult regions_response = ec2.describeRegions();
 
 		for(Region region : regions_response.getRegions()) {
-		    System.out.printf("[name] %s " + 
+		    System.out.printf("[name] %16s " + 
 		    					"[endpoint] %s\n", 
 		    					region.getRegionName(), 
 		    					region.getEndpoint()
     		);
 		}
-	    System.out.println();
 	}
 
 	
@@ -247,8 +259,7 @@ public class aws {
 
 		ec2.stopInstances(request);
 
-		System.out.printf("Successfully stop instance %s", instanceId);
-		System.out.println();
+		System.out.printf("Successfully stop instance %s\n", instanceId);
 	}
 
 	
@@ -326,38 +337,10 @@ public class aws {
 		System.out.printf("Successfully terminated instance %s\n", instanceId);
 	}
 	
-	
-//	================= 10. start all instance =================
-	public static void startAllInstance() {
-			
-//		System.out.println("Start all instance....\n");
-//		
-//		boolean done = false;
+//	================= 10. list keys =================
+	public static void listKeys() {
+		System.out.println("Loading keys....\n");
 		
-//		InstanceStates instanceState = new InstanceStates();
-//		DescribeInstancesRequest request = new DescribeInstancesRequest();
-//
-//		while (!done) {
-//			DescribeInstancesResult response = ec2.describeInstances(request);
-//			for (Reservation reservation : response.getReservations()) {
-//				for (Instance instance : reservation.getInstances()) {
-//					
-//					if(instance.getState().getCode() == InstanceStates.STOOPED) {
-//						startInstance(instance.getInstanceId());
-//					}					
-//				}
-//			}
-//			
-//			request.setNextToken(response.getNextToken());
-//			if (response.getNextToken() == null) {
-//				done = true;
-//			}
-//		}
-	}
-	
-	
-//	================= 11. list key pair =================
-	public static void listKeyPair() {
 		DescribeKeyPairsResult response = ec2.describeKeyPairs();
 
 		for(KeyPairInfo key_pair : response.getKeyPairs()) {
@@ -365,16 +348,43 @@ public class aws {
 		        "[key name] %15s " +
 		        "[fingerprint] %s\n",
 		        key_pair.getKeyName(),
-		        key_pair.getKeyFingerprint());
-		}	
+		        key_pair.getKeyFingerprint()
+		    );
+		}
+	}
+	
+	
+//	================= 11. start all instance =================
+	public static void startAllInstance() {		
+		System.out.println("Starting all instance....\n");
+				
+		boolean done = false;
 		
-		System.out.println();
+		DescribeInstancesRequest request = new DescribeInstancesRequest();
+
+		while (!done) {
+			DescribeInstancesResult response = ec2.describeInstances(request);
+			for (Reservation reservation : response.getReservations()) {
+				for (Instance instance : reservation.getInstances()) {
+					
+					if(instance.getState().getCode() == STOPPED) {
+						startInstance(instance.getInstanceId());
+					}					
+				}
+			}
+			
+			request.setNextToken(response.getNextToken());
+			if (response.getNextToken() == null) {
+				done = true;
+			}
+		}
 	}
 	
 	
 //	================= 12. list security group =================	
-	public static void listSecurityGroup() {
-
+	public static void listSecurityGroups() {
+		System.out.println("Loading Security Groups....\n");
+		
         DescribeSecurityGroupsRequest request =
             new DescribeSecurityGroupsRequest();
 
@@ -393,7 +403,34 @@ public class aws {
                 group.getDescription()
             );
         }		
-		System.out.println();
+	}
+	
+	
+//	================= 13. stop all instance =================
+	public static void stopAllInstance() {
+			
+		System.out.println("Stopping all instance....\n");
+		
+		boolean done = false;
+		
+		DescribeInstancesRequest request = new DescribeInstancesRequest();
+
+		while (!done) {
+			DescribeInstancesResult response = ec2.describeInstances(request);
+			for (Reservation reservation : response.getReservations()) {
+				for (Instance instance : reservation.getInstances()) {
+					
+					if(instance.getState().getCode() == RUNNING) {
+						stopInstance(instance.getInstanceId());
+					}					
+				}
+			}
+			
+			request.setNextToken(response.getNextToken());
+			if (response.getNextToken() == null) {
+				done = true;
+			}
+		}
 	}
 }
 
