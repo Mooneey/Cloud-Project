@@ -10,14 +10,20 @@ import com.amazonaws.services.ec2.model.DescribeImagesRequest;
 import com.amazonaws.services.ec2.model.DescribeImagesResult;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
+import com.amazonaws.services.ec2.model.DescribeKeyPairsResult;
 import com.amazonaws.services.ec2.model.DescribeRegionsResult;
+import com.amazonaws.services.ec2.model.DescribeSecurityGroupsRequest;
+import com.amazonaws.services.ec2.model.DescribeSecurityGroupsResult;
 import com.amazonaws.services.ec2.model.Image;
 import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.InstanceType;
+import com.amazonaws.services.ec2.model.KeyPairInfo;
 import com.amazonaws.services.ec2.model.RebootInstancesRequest;
 import com.amazonaws.services.ec2.model.Region;
 import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.RunInstancesResult;
+import com.amazonaws.services.ec2.model.SecurityGroup;
 import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.ec2.model.StopInstancesRequest;
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
@@ -132,6 +138,14 @@ public class aws {
 				startAllInstance();
 				break;
 
+			case 11:
+				listKeyPair();
+				break;
+				
+			case 12:
+				listSecurityGroup();
+				break;
+				
 			case 99:
 				System.out.println("bye!");
 				System.exit(0);
@@ -153,11 +167,19 @@ public class aws {
 			for (Reservation reservation : response.getReservations()) {
 				for (Instance instance : reservation.getInstances()) {
 					System.out.printf(
-							"[id] %s, " + "[AMI] %s, " + "[type] %s, " + "[state] %10s, " + "[monitoring state] %s",
-							instance.getInstanceId(), instance.getImageId(), instance.getInstanceType(),
-							instance.getState().getName(), instance.getMonitoring().getState());
+							"[id] %s, " + 
+							"[AMI] %s, " + 
+							"[type] %s, " + 
+							"[state] %10s, " 
+							+ "[monitoring state] %s",
+							instance.getInstanceId(), 
+							instance.getImageId(), 
+							instance.getInstanceType(),
+							instance.getState().getName(), 
+							instance.getMonitoring().getState()
+					);
 				}
-				System.out.println();
+				System.out.println(2);
 			}
 			request.setNextToken(response.getNextToken());
 			if (response.getNextToken() == null) {
@@ -175,14 +197,15 @@ public class aws {
 				ec2.describeAvailabilityZones();
 
 		for (AvailabilityZone zone : zonesResult.getAvailabilityZones()) {
-			System.out.printf("Found availability zone %s " +
-								"with status %s " + 
-								"in region %s", 
+			System.out.printf("[zone name] %s, " +
+								"[state] %s, " + 
+								"[region name] %s\n",
 								zone.getZoneName(),
 								zone.getState(), 
-								zone.getRegionName());
-			System.out.println();
+								zone.getRegionName()
+			);
 		}
+		System.out.println();
 	}
 
 	
@@ -206,12 +229,13 @@ public class aws {
 		DescribeRegionsResult regions_response = ec2.describeRegions();
 
 		for(Region region : regions_response.getRegions()) {
-		    System.out.printf(
-	    		"Found region %s, with endpoint %s", 
-	    		region.getRegionName(), region.getEndpoint()
+		    System.out.printf("[name] %s " + 
+		    					"[endpoint] %s\n", 
+		    					region.getRegionName(), 
+		    					region.getEndpoint()
     		);
-		    System.out.println();
 		}
+	    System.out.println();
 	}
 
 	
@@ -231,19 +255,22 @@ public class aws {
 //	================= 6. create instance =================
 	public static void createInstance(String amiId) {
 		System.out.println("Creating Instance....\n");
+	
+		RunInstancesRequest request = new RunInstancesRequest()
+				.withImageId(amiId)
+				.withInstanceType(InstanceType.T2Micro)
+				.withMaxCount(1)
+				.withMinCount(1);
 		
-		RunInstancesRequest runRequest = new RunInstancesRequest();
-		runRequest.withImageId(amiId)
-			.withInstanceType("t2.micro")
-			.withMaxCount(1)
-			.withMinCount(1)
-			.withKeyName("new instance")
-			.withSecurityGroups("htcondor-security");
-		
-		RunInstancesResult runResult = ec2.runInstances(runRequest);
-		
-		System.out.printf("Successfully started EC2 instance from AMI %s", amiId);
-		System.out.println();	
+		RunInstancesResult result = ec2.runInstances(request);
+
+		String instanceId = result.getReservation()
+										.getInstances()
+										.get(0)
+										.getInstanceId();
+
+		System.out.printf("Successfully started EC2 instance %s based on AMI %s\n", 
+				instanceId, amiId);
 	}
 
 	
@@ -257,8 +284,7 @@ public class aws {
 
 			ec2.rebootInstances(request);
 
-			System.out.printf("Successfully rebooted instance %s", instanceId);
-			System.out.println();
+			System.out.printf("Successfully rebooted instance %s\n", instanceId);
 		}
 
 		catch (Exception e) {
@@ -284,7 +310,9 @@ public class aws {
 								image.getState()
 			);
 		}
+		System.out.println();
 	}
+	
 	
 //	================= 9. terminate instance =================
 	public static void terminateInstance(String instanceId) {
@@ -295,18 +323,17 @@ public class aws {
 
 		ec2.terminateInstances(request);
 
-		System.out.printf("Successfully terminated instance %s", instanceId);
-		System.out.println();
+		System.out.printf("Successfully terminated instance %s\n", instanceId);
 	}
 	
 	
 //	================= 10. start all instance =================
 	public static void startAllInstance() {
-		
-		
+			
 //		System.out.println("Start all instance....\n");
 //		
 //		boolean done = false;
+		
 //		InstanceStates instanceState = new InstanceStates();
 //		DescribeInstancesRequest request = new DescribeInstancesRequest();
 //
@@ -315,7 +342,7 @@ public class aws {
 //			for (Reservation reservation : response.getReservations()) {
 //				for (Instance instance : reservation.getInstances()) {
 //					
-//					if(instance.getState().getCode() == .STOOPED) {
+//					if(instance.getState().getCode() == InstanceStates.STOOPED) {
 //						startInstance(instance.getInstanceId());
 //					}					
 //				}
@@ -328,4 +355,45 @@ public class aws {
 //		}
 	}
 	
+	
+//	================= 11. list key pair =================
+	public static void listKeyPair() {
+		DescribeKeyPairsResult response = ec2.describeKeyPairs();
+
+		for(KeyPairInfo key_pair : response.getKeyPairs()) {
+		    System.out.printf(
+		        "[key name] %15s " +
+		        "[fingerprint] %s\n",
+		        key_pair.getKeyName(),
+		        key_pair.getKeyFingerprint());
+		}	
+		
+		System.out.println();
+	}
+	
+	
+//	================= 12. list security group =================	
+	public static void listSecurityGroup() {
+
+        DescribeSecurityGroupsRequest request =
+            new DescribeSecurityGroupsRequest();
+
+        DescribeSecurityGroupsResult response =
+            ec2.describeSecurityGroups(request);
+
+        for(SecurityGroup group : response.getSecurityGroups()) {
+            System.out.printf(
+                "[id] %22s, " +
+                "[name] %20s " +
+                "[vpc id] %s " +
+                "[description] %s\n",
+                group.getGroupId(),
+                group.getGroupName(),
+                group.getVpcId(),
+                group.getDescription()
+            );
+        }		
+		System.out.println();
+	}
 }
+
