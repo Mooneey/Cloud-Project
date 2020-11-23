@@ -2,18 +2,17 @@ import java.util.Scanner;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
-import com.amazonaws.services.acmpca.model.Tag;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
 import com.amazonaws.services.ec2.model.AvailabilityZone;
-import com.amazonaws.services.ec2.model.CreateTagsRequest;
 import com.amazonaws.services.ec2.model.DescribeAvailabilityZonesResult;
 import com.amazonaws.services.ec2.model.DescribeImagesRequest;
+import com.amazonaws.services.ec2.model.DescribeImagesResult;
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
 import com.amazonaws.services.ec2.model.DescribeInstancesResult;
 import com.amazonaws.services.ec2.model.DescribeRegionsResult;
+import com.amazonaws.services.ec2.model.Image;
 import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ec2.model.InstanceType;
 import com.amazonaws.services.ec2.model.RebootInstancesRequest;
 import com.amazonaws.services.ec2.model.Region;
 import com.amazonaws.services.ec2.model.Reservation;
@@ -22,7 +21,6 @@ import com.amazonaws.services.ec2.model.RunInstancesResult;
 import com.amazonaws.services.ec2.model.StartInstancesRequest;
 import com.amazonaws.services.ec2.model.StopInstancesRequest;
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
-import com.amazonaws.services.ec2.model.TerminateInstancesResult;
 
 public class aws {
 
@@ -59,6 +57,8 @@ public class aws {
 		Scanner id_string = new Scanner(System.in);
 
 		String instanceId;
+		String imageId;
+		
 		int number = 0;
 
 		while (true) {
@@ -74,7 +74,7 @@ public class aws {
 			System.out.println(" 3. start instance					4. available regions	");
 			System.out.println(" 5. stop instance					6. create instance		");
 			System.out.println(" 7. reboot instance					8. list images			");
-			System.out.println(" 							99. quit				");
+			System.out.println(" 9. terminate instance				99. quit				");
 			System.out.println("------------------------------------------------------------");
 
 			System.out.print("Enter an integer: ");
@@ -108,8 +108,8 @@ public class aws {
 
 			case 6:
 				System.out.print("Enter ami ID : ");
-				instanceId = id_string.next();
-				createInstance(instanceId);
+				imageId = id_string.next();
+				createInstance(imageId);
 				break;
 
 			case 7:
@@ -123,7 +123,13 @@ public class aws {
 				break;
 
 			case 9:
-				// terminateInstance();
+				System.out.print("Enter instance ID : ");
+				instanceId = id_string.next();
+				terminateInstance(instanceId);
+				break;
+				
+			case 10:
+				startAllInstance();
 				break;
 
 			case 99:
@@ -137,7 +143,8 @@ public class aws {
 //	================= 1. list instance =================
 	public static void listInstances() {
 		System.out.println("Listing instances....");
-
+		System.out.println();
+		
 		boolean done = false;
 		DescribeInstancesRequest request = new DescribeInstancesRequest();
 
@@ -159,8 +166,11 @@ public class aws {
 		}
 	}
 
+	
 //	================= 2. available zones =================
 	public static void availableZones() {
+		System.out.println("Listing available zones....\n");
+		
 		DescribeAvailabilityZonesResult zonesResult = 
 				ec2.describeAvailabilityZones();
 
@@ -175,9 +185,10 @@ public class aws {
 		}
 	}
 
+	
 //	================= 3. start instance =================
 	public static void startInstance(String instanceId) {
-		System.out.printf("Starting.... %s", instanceId);
+		System.out.printf("Starting.... %s\n", instanceId);
 
 		StartInstancesRequest request = new StartInstancesRequest().withInstanceIds(instanceId);
 
@@ -187,12 +198,14 @@ public class aws {
 		System.out.println();
 	}
 
+	
 //	================= 4. available regions =================
 	public static void availableRegions() {
+		System.out.println("Listing available regions....\n");
 		
-		DescribeRegionsResult regionsResult = ec2.describeRegions();
+		DescribeRegionsResult regions_response = ec2.describeRegions();
 
-		for(Region region : regionsResult.getRegions()) {
+		for(Region region : regions_response.getRegions()) {
 		    System.out.printf(
 	    		"Found region %s, with endpoint %s", 
 	    		region.getRegionName(), region.getEndpoint()
@@ -201,9 +214,10 @@ public class aws {
 		}
 	}
 
+	
 //	================= 5. stop instance =================
 	public static void stopInstance(String instanceId) {
-		System.out.printf("Stopping.... %s", instanceId);
+		System.out.printf("Stopping.... %s\n", instanceId);
 
 		StopInstancesRequest request = new StopInstancesRequest().withInstanceIds(instanceId);
 
@@ -213,20 +227,30 @@ public class aws {
 		System.out.println();
 	}
 
+	
 //	================= 6. create instance =================
 	public static void createInstance(String amiId) {
-
+		System.out.println("Creating Instance....\n");
+		
 		RunInstancesRequest runRequest = new RunInstancesRequest();
-		runRequest.withImageId(amiId).withInstanceType(InstanceType.T2Micro).withMaxCount(1).withMinCount(1);
-
-		RunInstancesResult response = ec2.runInstances(runRequest);
+		runRequest.withImageId(amiId)
+			.withInstanceType("t2.micro")
+			.withMaxCount(1)
+			.withMinCount(1)
+			.withKeyName("new instance")
+			.withSecurityGroups("htcondor-security");
+		
+		RunInstancesResult runResult = ec2.runInstances(runRequest);
+		
+		System.out.printf("Successfully started EC2 instance from AMI %s", amiId);
+		System.out.println();	
 	}
 
 	
 //	================= 7. reboot instance =================
 	public static void rebootInstance(String instanceId) {
 		try {
-			System.out.printf("Rebooting.... %s", instanceId);
+			System.out.printf("Rebooting.... %s\n", instanceId);
 
 			RebootInstancesRequest request = new RebootInstancesRequest()
 					.withInstanceIds(instanceId);
@@ -245,16 +269,26 @@ public class aws {
 	
 //	================= 8. list images =================
 	public static void listImages() {
-		
-		DescribeImagesRequest imageRequest = new DescribeImagesRequest()
-				.withOwners("self");
-		
-	}
+		System.out.println("Loading images....\n");
 
+		DescribeImagesRequest request = new DescribeImagesRequest().withOwners("self");
+		DescribeImagesResult Images = ec2.describeImages(request);
+		for (Image image : Images.getImages()) {
+			System.out.printf("[ImageID] %s,  " + 
+								"[Name] %s,  " + 
+								"[Owner] %s  " +
+								"[state] %10s", 
+								image.getImageId(), 
+								image.getName(),
+								image.getOwnerId(),
+								image.getState()
+			);
+		}
+	}
 	
 //	================= 9. terminate instance =================
 	public static void terminateInstance(String instanceId) {
-		System.out.printf("Terminating.... %s", instanceId);
+		System.out.printf("Terminating.... %s\n", instanceId);
 
 		TerminateInstancesRequest request = new TerminateInstancesRequest()
 				.withInstanceIds(instanceId);
@@ -264,4 +298,33 @@ public class aws {
 		System.out.printf("Successfully terminated instance %s", instanceId);
 		System.out.println();
 	}
+	
+	
+//	================= 10. start all instance =================
+	public static void startAllInstance() {
+		
+		
+		System.out.println("Start all instance....\n");
+		
+		boolean done = false;
+		DescribeInstancesRequest request = new DescribeInstancesRequest();
+
+		while (!done) {
+			DescribeInstancesResult response = ec2.describeInstances(request);
+			for (Reservation reservation : response.getReservations()) {
+				for (Instance instance : reservation.getInstances()) {
+					
+					if(instance.getState().getName() == "stopped") {
+						startInstance(instance.getInstanceId());
+					}					
+				}
+			}
+			
+			request.setNextToken(response.getNextToken());
+			if (response.getNextToken() == null) {
+				done = true;
+			}
+		}
+	}
+	
 }
