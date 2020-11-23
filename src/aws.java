@@ -304,27 +304,28 @@ public class aws {
 	public static void startAllInstance() {
 		
 		
-		System.out.println("Start all instance....\n");
-		
-		boolean done = false;
-		DescribeInstancesRequest request = new DescribeInstancesRequest();
-
-		while (!done) {
-			DescribeInstancesResult response = ec2.describeInstances(request);
-			for (Reservation reservation : response.getReservations()) {
-				for (Instance instance : reservation.getInstances()) {
-					
-					if(instance.getState().getName() == "stopped") {
-						startInstance(instance.getInstanceId());
-					}					
-				}
-			}
-			
-			request.setNextToken(response.getNextToken());
-			if (response.getNextToken() == null) {
-				done = true;
-			}
-		}
+//		System.out.println("Start all instance....\n");
+//		
+//		boolean done = false;
+//		InstanceStates instanceState = new InstanceStates();
+//		DescribeInstancesRequest request = new DescribeInstancesRequest();
+//
+//		while (!done) {
+//			DescribeInstancesResult response = ec2.describeInstances(request);
+//			for (Reservation reservation : response.getReservations()) {
+//				for (Instance instance : reservation.getInstances()) {
+//					
+//					if(instance.getState().getCode() == .STOOPED) {
+//						startInstance(instance.getInstanceId());
+//					}					
+//				}
+//			}
+//			
+//			request.setNextToken(response.getNextToken());
+//			if (response.getNextToken() == null) {
+//				done = true;
+//			}
+//		}
 	}
 	
 }
